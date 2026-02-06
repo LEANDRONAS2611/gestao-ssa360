@@ -1,0 +1,7 @@
+{
+  "name": "Gestão Azul Pro",
+  "description": "Uma plataforma completa de gestão empresarial para pequenos e médios negócios, incluindo controle financeiro, propostas comerciais e gestão de serviços.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

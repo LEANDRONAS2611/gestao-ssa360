@@ -1,0 +1,224 @@
+
+import React from 'react';
+import { Card, MonthSelector } from '../components/UI';
+import { 
+  TrendingUp, TrendingDown, Wallet, ShoppingCart, 
+  ArrowUpRight, ArrowDownRight, Activity 
+} from 'lucide-react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer 
+} from 'recharts';
+import { Sale, Expense, ViewType } from '../types';
+
+interface DashboardViewProps {
+  currentDate: Date;
+  setCurrentDate: (d: Date) => void;
+  sales: Sale[];
+  expenses: Expense[];
+  setActiveTab: (tab: ViewType) => void;
+}
+
+export const DashboardView: React.FC<DashboardViewProps> = ({ currentDate, setCurrentDate, sales, expenses, setActiveTab }) => {
+  const totalSales = sales.reduce((acc, s) => acc + s.total, 0);
+  const totalExpenses = expenses.reduce((acc, e) => acc + e.value, 0);
+  const netProfit = totalSales - totalExpenses;
+
+  // Generate chart data based on actual records or show zero baseline
+  const chartData = [
+    { name: 'S1', receitas: 0, despesas: 0 },
+    { name: 'S2', receitas: 0, despesas: 0 },
+    { name: 'S3', receitas: 0, despesas: 0 },
+    { name: 'S4', receitas: 0, despesas: 0 },
+  ];
+
+  // Simple heuristic to populate chart if data exists (can be improved with real date parsing)
+  if (sales.length > 0 || expenses.length > 0) {
+    sales.forEach(s => { chartData[2].receitas += s.total; });
+    expenses.forEach(e => { chartData[2].despesas += e.value; });
+  }
+
+  return (
+    <div className="space-y-10 animate-slide-up">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Performance</h1>
+          <p className="text-slate-500 mt-1 font-medium italic">Consolidação de dados do período.</p>
+        </div>
+        <MonthSelector currentDate={currentDate} onChange={setCurrentDate} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard 
+          title="Faturamento" 
+          value={`R$ ${totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
+          change="0.0%" 
+          trend="up" 
+          icon={TrendingUp} 
+          color="blue" 
+        />
+        <MetricCard 
+          title="Despesas" 
+          value={`R$ ${totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
+          change="0.0%" 
+          trend="down" 
+          icon={TrendingDown} 
+          color="rose" 
+        />
+        <MetricCard 
+          title="Lucro Líquido" 
+          value={`R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} 
+          change="0.0%" 
+          trend="up" 
+          icon={Wallet} 
+          color="emerald" 
+        />
+        <MetricCard 
+          title="Vendas" 
+          value={sales.length.toString()} 
+          change="+0" 
+          trend="up" 
+          icon={ShoppingCart} 
+          color="indigo" 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="lg:col-span-2 p-8">
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-blue-600">
+                <Activity size={20} />
+              </div>
+              <h3 className="text-lg font-black text-slate-800">Fluxo de Caixa</h3>
+            </div>
+          </div>
+          <div style={{ width: '100%', height: 350 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorRec" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 700}} 
+                  dy={10}
+                />
+                <YAxis hide />
+                <Tooltip 
+                  contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 800, fontSize: '12px'}}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="receitas" 
+                  stroke="#2563eb" 
+                  fillOpacity={1} 
+                  fill="url(#colorRec)" 
+                  strokeWidth={4} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="despesas" 
+                  stroke="#f43f5e" 
+                  fill="transparent" 
+                  strokeWidth={2} 
+                  strokeDasharray="8 8" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="p-8">
+          <h3 className="text-lg font-black text-slate-800 mb-8">Últimos Movimentos</h3>
+          <div className="space-y-6">
+            {sales.length === 0 && expenses.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200">
+                  <Activity size={32} />
+                </div>
+                <p className="text-xs font-bold text-slate-400 italic">Sem movimentações este mês.</p>
+              </div>
+            ) : (
+              <>
+                {sales.slice(-3).reverse().map(sale => (
+                  <div key={sale.id} className="flex items-center justify-between group cursor-pointer" onClick={() => setActiveTab(ViewType.FINANCIAL)}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+                        <ArrowUpRight size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 truncate max-w-[120px]">{sale.clientName}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{new Date(sale.date).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-emerald-600">+ R$ {sale.total.toFixed(0)}</p>
+                    </div>
+                  </div>
+                ))}
+                {expenses.slice(-2).reverse().map(exp => (
+                  <div key={exp.id} className="flex items-center justify-between group cursor-pointer" onClick={() => setActiveTab(ViewType.FINANCIAL)}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-all">
+                        <ArrowDownRight size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 truncate max-w-[120px]">{exp.description}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{new Date(exp.date).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-rose-600">- R$ {exp.value.toFixed(0)}</p>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+          <button 
+            onClick={() => setActiveTab(ViewType.FINANCIAL)}
+            className="w-full mt-8 py-4 border-2 border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-400 tracking-widest hover:border-blue-500 hover:text-blue-600 transition-all"
+          >
+            Ver Extrato Completo
+          </button>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+const MetricCard: React.FC<any> = ({ title, value, change, trend, icon: Icon, color }) => {
+  const colorMap: any = {
+    blue: { bg: "bg-blue-500/10", text: "text-blue-600", gradient: "from-blue-600 to-indigo-600" },
+    rose: { bg: "bg-rose-500/10", text: "text-rose-600", gradient: "from-rose-500 to-pink-600" },
+    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-600", gradient: "from-emerald-500 to-teal-600" },
+    indigo: { bg: "bg-indigo-500/10", text: "text-indigo-600", gradient: "from-indigo-600 to-purple-600" }
+  };
+  
+  const current = colorMap[color];
+
+  return (
+    <Card className="p-6 group hover:shadow-2xl transition-all duration-500">
+      <div className="flex justify-between items-start">
+        <div className={`p-3 rounded-2xl ${current.bg} ${current.text} group-hover:bg-gradient-to-br ${current.gradient} group-hover:text-white transition-all duration-500`}>
+          <Icon size={24} />
+        </div>
+        <div className={`flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full ${trend === 'up' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+          {trend === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          {change}
+        </div>
+      </div>
+      <div className="mt-6">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">{title}</p>
+        <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">{value}</h3>
+      </div>
+    </Card>
+  );
+};
