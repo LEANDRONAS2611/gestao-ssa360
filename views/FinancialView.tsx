@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Card, MonthSelector, Button, Input } from '../components/UI';
 import { 
   Download, ArrowUpCircle, ArrowDownCircle, 
-  History, FileUp, Sparkles, Loader2, Trash2, Edit3, X, Save, AlertTriangle
+  History, FileUp, Sparkles, Loader2, Trash2, Edit3, X, Save, AlertTriangle, Tag
 } from 'lucide-react';
 import { Sale, Expense } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -23,7 +23,21 @@ interface EditingItem {
   label: string;
   value: number;
   date: string;
+  category: string;
 }
+
+const EXPENSE_CATEGORIES = [
+  'Impostos/Taxas',
+  'Marketing/Publicidade',
+  'Infraestrutura/Aluguel',
+  'Salários/Pró-labore',
+  'Softwares/Assinaturas',
+  'Logística/Transporte',
+  'Equipamentos',
+  'Material de Escritório',
+  'Manutenção',
+  'Outros'
+];
 
 export const FinancialView: React.FC<FinancialViewProps> = ({ 
   currentDate, setCurrentDate, sales, expenses, setSales, setExpenses 
@@ -36,8 +50,22 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
   // Consolida e filtra vendas e despesas pelo mês selecionado
   const ledger = useMemo(() => {
     const all = [
-      ...sales.map(s => ({ type: 'entrada' as const, label: `Venda: ${s.clientName}`, value: s.total, date: s.date, id: s.id })),
-      ...expenses.map(e => ({ type: 'saida' as const, label: e.description, value: e.value, date: e.date, id: e.id }))
+      ...sales.map(s => ({ 
+        type: 'entrada' as const, 
+        label: `Venda: ${s.clientName}`, 
+        value: s.total, 
+        date: s.date, 
+        id: s.id,
+        category: 'Receita de Venda'
+      })),
+      ...expenses.map(e => ({ 
+        type: 'saida' as const, 
+        label: e.description, 
+        value: e.value, 
+        date: e.date, 
+        id: e.id,
+        category: e.category 
+      }))
     ];
 
     return all
@@ -58,8 +86,8 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
   }, [ledger]);
 
   const handleExportCSV = () => {
-    const headers = "Data,Descricao,Tipo,Valor\n";
-    const rows = ledger.map(item => `${item.date},${item.label},${item.type},${item.value}`).join("\n");
+    const headers = "Data,Descricao,Categoria,Tipo,Valor\n";
+    const rows = ledger.map(item => `${item.date},${item.label},${item.category},${item.type},${item.value}`).join("\n");
     const csvContent = "data:text/csv;charset=utf-8," + headers + rows;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -98,7 +126,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
                 }
               },
               {
-                text: "Analise este extrato bancário. Extraia todas as transações (entradas e saídas). Identifique a data (no formato YYYY-MM-DD), a descrição limpa e o valor numérico. Ignore saldos e taxas de cabeçalho. Retorne estritamente um JSON."
+                text: "Analise este extrato bancário. Extraia todas as transações (entradas e saídas). Identifique a data (no formato YYYY-MM-DD), a descrição limpa e o valor numérico. Para as saídas, tente categorizar entre as opções: Impostos, Salários, Marketing, Aluguel, Software ou Outros. Retorne estritamente um JSON."
               }
             ]
           }
@@ -127,7 +155,8 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
                   properties: {
                     data: { type: Type.STRING },
                     descricao: { type: Type.STRING },
-                    valor: { type: Type.NUMBER }
+                    valor: { type: Type.NUMBER },
+                    categoria: { type: Type.STRING }
                   },
                   required: ["data", "descricao", "valor"]
                 }
@@ -153,7 +182,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
       const newExpenses: Expense[] = result.saidas.map((s: any) => ({
         id: `ai-exp-${Math.random().toString(36).substr(2, 9)}`,
         description: `[IA] ${s.descricao}`,
-        category: 'Operacional (IA)',
+        category: s.categoria || 'Outros',
         value: s.valor,
         date: s.data,
         status: 'Pago'
@@ -178,7 +207,8 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
       type: item.type,
       label: item.label.startsWith('Venda: ') ? item.label.replace('Venda: ', '') : item.label,
       value: item.value,
-      date: item.date
+      date: item.date,
+      category: item.category
     });
   };
 
@@ -194,7 +224,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
     } else {
       setExpenses(prev => prev.map(e => 
         e.id === editingItem.id 
-          ? { ...e, description: editingItem.label, value: editingItem.value, date: editingItem.date } 
+          ? { ...e, description: editingItem.label, value: editingItem.value, date: editingItem.date, category: editingItem.category } 
           : e
       ));
     }
@@ -235,6 +265,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
                 value={editingItem.label} 
                 onChange={e => setEditingItem({...editingItem, label: e.target.value})} 
               />
+              
               <div className="grid grid-cols-2 gap-4">
                 <Input 
                   label="Valor (R$)" 
@@ -249,6 +280,21 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
                   onChange={e => setEditingItem({...editingItem, date: e.target.value})} 
                 />
               </div>
+
+              {editingItem.type === 'saida' && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Categoria da Despesa</label>
+                  <select 
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm text-slate-900 focus:bg-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/5 outline-none transition-all"
+                    value={editingItem.category}
+                    onChange={e => setEditingItem({...editingItem, category: e.target.value})}
+                  >
+                    {EXPENSE_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-10">
@@ -342,7 +388,8 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
             <thead className="bg-slate-50 border-b text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
                 <th className="p-5">Data</th>
-                <th className="p-5">Descrição da Transação</th>
+                <th className="p-5">Transação</th>
+                <th className="p-5">Categoria</th>
                 <th className="p-5">Tipo</th>
                 <th className="p-5 text-right">Valor</th>
                 <th className="p-5 text-center">Ações</th>
@@ -351,7 +398,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {ledger.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-20 text-center text-slate-400 italic font-medium">Nenhuma movimentação para este mês.</td>
+                  <td colSpan={6} className="p-20 text-center text-slate-400 italic font-medium">Nenhuma movimentação para este mês.</td>
                 </tr>
               ) : (
                 ledger.map((item) => (
@@ -361,6 +408,14 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
                     </td>
                     <td className="p-5">
                       <p className="font-bold text-slate-800">{item.label}</p>
+                    </td>
+                    <td className="p-5">
+                      <div className="flex items-center gap-1.5">
+                        <Tag size={12} className={item.type === 'entrada' ? 'text-emerald-400' : 'text-slate-400'} />
+                        <span className={`text-[10px] font-black uppercase tracking-tight ${item.type === 'entrada' ? 'text-emerald-700' : 'text-slate-500'}`}>
+                          {item.category || 'Não Categorizado'}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-5">
                       <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${item.type === 'entrada' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
