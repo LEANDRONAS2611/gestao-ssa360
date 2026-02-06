@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './views/DashboardView';
 import { ServicesView } from './views/ServicesView';
@@ -10,7 +10,7 @@ import { ExpensesView } from './views/ExpensesView';
 import { FinancialView } from './views/FinancialView';
 import { SettingsView } from './views/SettingsView';
 import { ViewType, Service, Expense, Sale, CompanyProfile } from './types';
-import { ChevronRight, Home, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { ChevronRight, Home, Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const isInitialMount = useRef(true);
 
   // --- Estados Principais ---
   const [services, setServices] = useState<Service[]>(() => JSON.parse(localStorage.getItem('ga_services') || '[]'));
@@ -47,6 +48,8 @@ const App: React.FC = () => {
       } catch (err) {
         console.error("Erro ao inicializar Supabase:", err);
       }
+    } else {
+      setSupabase(null);
     }
   }, [companyProfile.cloudConfig?.supabaseUrl, companyProfile.cloudConfig?.supabaseKey]);
 
@@ -64,7 +67,7 @@ const App: React.FC = () => {
           id: companyProfile.cloudConfig.projectId, 
           data: fullData,
           updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'id' });
 
       if (error) throw error;
       setSyncStatus('success');
@@ -75,39 +78,57 @@ const App: React.FC = () => {
     }
   }, [supabase, services, expenses, sales, companyProfile]);
 
-  // --- Puxar dados da Nuvem no Início ---
+  // --- Carregamento Inicial da Nuvem ---
   useEffect(() => {
     const fetchCloudData = async () => {
       if (!supabase || !companyProfile.cloudConfig?.projectId) return;
       
-      const { data, error } = await supabase
-        .from('app_data')
-        .select('data')
-        .eq('id', companyProfile.cloudConfig.projectId)
-        .single();
+      setSyncStatus('syncing');
+      try {
+        const { data, error } = await supabase
+          .from('app_data')
+          .select('data')
+          .eq('id', companyProfile.cloudConfig.projectId)
+          .maybeSingle();
 
-      if (data?.data && !error) {
-        const cloud = data.data;
-        // Merge inteligente (opcional, aqui estamos substituindo pelo mais recente da nuvem se houver conflito)
-        if (cloud.services) setServices(cloud.services);
-        if (cloud.expenses) setExpenses(cloud.expenses);
-        if (cloud.sales) setSales(cloud.sales);
-        if (cloud.companyProfile) setCompanyProfile(cloud.companyProfile);
+        if (data?.data && !error) {
+          const cloud = data.data;
+          if (cloud.services) setServices(cloud.services);
+          if (cloud.expenses) setExpenses(cloud.expenses);
+          if (cloud.sales) setSales(cloud.sales);
+          if (cloud.companyProfile) setCompanyProfile(cloud.companyProfile);
+          setSyncStatus('success');
+        } else {
+          setSyncStatus('idle');
+        }
+      } catch (err) {
+        console.error("Erro ao buscar dados na nuvem:", err);
+        setSyncStatus('error');
       }
     };
-    fetchCloudData();
-  }, [supabase]);
+    
+    if (supabase) {
+      fetchCloudData();
+    }
+  }, [supabase, companyProfile.cloudConfig?.projectId]);
 
-  // --- Auto-Save Local e Debounced Cloud Sync ---
+  // --- Auto-Save Local e Cloud Sync (com Debounce) ---
   useEffect(() => {
+    // Salva localmente sempre
     localStorage.setItem('ga_services', JSON.stringify(services));
     localStorage.setItem('ga_expenses', JSON.stringify(expenses));
     localStorage.setItem('ga_sales', JSON.stringify(sales));
     localStorage.setItem('ga_company_profile', JSON.stringify(companyProfile));
 
+    // Evita sincronizar no primeiro mount (para não sobrescrever a nuvem com dados locais vazios)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const timeout = setTimeout(() => {
       syncToCloud();
-    }, 2000); // Sincroniza 2s após a última alteração para evitar excesso de requisições
+    }, 3000); 
 
     return () => clearTimeout(timeout);
   }, [services, expenses, sales, companyProfile, syncToCloud]);
@@ -119,7 +140,16 @@ const App: React.FC = () => {
       case ViewType.SERVICES:
         return <ServicesView services={services} setServices={setServices} />;
       case ViewType.SALES:
-        return <SalesView services={services} sales={sales} setSales={setSales} setActiveTab={setActiveTab} />;
+        return (
+          <SalesView 
+            services={services} 
+            sales={sales} 
+            setSales={setSales} 
+            expenses={expenses}
+            setExpenses={setExpenses}
+            setActiveTab={setActiveTab} 
+          />
+        );
       case ViewType.PROPOSALS:
         return <ProposalView companyProfile={companyProfile} />;
       case ViewType.CONTRACTS:
@@ -172,17 +202,22 @@ const App: React.FC = () => {
               <div className="flex items-center gap-2">
                 {syncStatus === 'syncing' ? (
                   <RefreshCw size={12} className="text-blue-500 animate-spin" />
+                ) : syncStatus === 'error' ? (
+                  <AlertCircle size={12} className="text-rose-500" />
                 ) : supabase ? (
                   <Cloud size={12} className="text-emerald-500" />
                 ) : (
                   <CloudOff size={12} className="text-slate-300" />
                 )}
-                <span className={`text-[10px] font-black uppercase tracking-widest ${supabase ? 'text-emerald-600' : 'text-slate-400'}`}>
-                  {syncStatus === 'syncing' ? 'Sincronizando...' : supabase ? 'Nuvem Ativa' : 'Apenas Local'}
+                <span className={`text-[10px] font-black uppercase tracking-widest 
+                  ${syncStatus === 'error' ? 'text-rose-600' : supabase ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {syncStatus === 'syncing' ? 'Sincronizando...' : 
+                   syncStatus === 'error' ? 'Erro de Sincronia' :
+                   supabase ? 'Conectado à Nuvem' : 'Modo Local'}
                 </span>
               </div>
               <div className="h-4 w-[1px] bg-slate-200"></div>
-              <span className="text-[10px] font-black text-slate-300 tracking-[0.3em]">GESTAO AZUL PRO CLOUD</span>
+              <span className="text-[10px] font-black text-slate-300 tracking-[0.3em]">GESTAO AZUL PRO</span>
             </div>
           </div>
 

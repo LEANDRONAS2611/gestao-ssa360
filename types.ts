@@ -56,6 +56,7 @@ export interface Sale {
   date: string;
   items: SaleItem[];
   total: number;
+  taxPercent?: number;
   paymentMethod: string;
   status: 'Concluído' | 'Em Andamento';
   deadline?: string;

@@ -1,21 +1,25 @@
+
 import React, { useState } from 'react';
 import { Card, Button, Input } from '../components/UI';
 import { 
   Plus, UserPlus, FileCheck, Trash2, 
-  Briefcase, Calendar, Clock, ClipboardList 
+  Briefcase, Calendar, Clock, ClipboardList, Percent, AlertCircle
 } from 'lucide-react';
-import { Service, Sale, ViewType } from '../types';
+import { Service, Sale, Expense, ViewType } from '../types';
 
 interface SalesViewProps {
   services: Service[];
   sales: Sale[];
   setSales: (sales: Sale[]) => void;
+  expenses: Expense[];
+  setExpenses: (expenses: Expense[]) => void;
   setActiveTab: (tab: ViewType) => void;
 }
 
-export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales, setActiveTab }) => {
+export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales, expenses, setExpenses, setActiveTab }) => {
   const [clientName, setClientName] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [taxPercent, setTaxPercent] = useState<number>(0);
   const [cart, setCart] = useState<{serviceId: string, name: string, price: number, quantity: number}[]>([]);
   const [paymentMethod, setPaymentMethod] = useState('PIX');
 
@@ -35,7 +39,11 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
     setCart(cart.filter(c => c.serviceId !== serviceId));
   };
 
+  // O subtotal é o valor bruto da venda
   const subtotal = cart.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+  // O imposto é calculado sobre o bruto para ser lançado como despesa
+  const taxValue = subtotal * (taxPercent / 100);
+  const finalTotal = subtotal; // O total recebido do cliente é o bruto
 
   const handleFinalize = () => {
     if (!clientName || cart.length === 0) {
@@ -43,23 +51,45 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
       return;
     }
 
+    const saleDate = new Date().toISOString().split('T')[0];
+
+    // 1. Criar o objeto de Venda (Entrada bruta)
     const newSale: Sale = {
       id: `sale-${Date.now()}`,
       clientName,
-      date: new Date().toISOString().split('T')[0],
+      date: saleDate,
       deadline: deadline,
       items: [...cart],
       total: subtotal,
+      taxPercent: taxPercent,
       paymentMethod,
       status: 'Concluído'
     };
 
+    // 2. Se houver imposto, criar o objeto de Despesa (Saída deduzida)
+    let updatedExpenses = [...expenses];
+    if (taxPercent > 0) {
+      const taxExpense: Expense = {
+        id: `tax-exp-${Date.now()}`,
+        description: `Imposto s/ Venda: ${clientName}`,
+        category: 'Impostos/Taxas',
+        value: taxValue,
+        date: saleDate,
+        status: 'Pago'
+      };
+      updatedExpenses = [taxExpense, ...expenses];
+    }
+
     setSales([...sales, newSale]);
-    alert("Contrato de serviço registrado com sucesso!");
+    setExpenses(updatedExpenses);
+
+    alert(`Contrato registrado! ${taxPercent > 0 ? `Um lançamento de despesa de R$ ${taxValue.toFixed(2)} foi gerado automaticamente.` : ''}`);
+    
     setCart([]);
     setClientName('');
     setDeadline('');
-    setActiveTab(ViewType.FINANCIAL); // Go to ledger to see the entry
+    setTaxPercent(0);
+    setActiveTab(ViewType.FINANCIAL); 
   };
 
   return (
@@ -83,7 +113,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
               </div>
               <h3 className="text-xl font-black text-slate-900">Identificação do Projeto</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Input 
                 label="Cliente / Contratante" 
                 placeholder="Nome completo ou Razão Social" 
@@ -97,6 +127,14 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                 onChange={e => setDeadline(e.target.value)}
                 icon={Calendar}
               />
+              <Input 
+                label="Alíquota de Imposto (%)" 
+                type="number"
+                placeholder="0"
+                value={taxPercent}
+                onChange={e => setTaxPercent(Math.max(0, Number(e.target.value)))}
+                icon={Percent}
+              />
             </div>
           </Card>
 
@@ -109,7 +147,6 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                 {availableServices.length === 0 ? (
                   <div className="text-center py-10">
                     <p className="text-xs text-slate-400 italic">Nenhum serviço cadastrado.</p>
-                    {/* Fix: removed unsupported 'size' prop to resolve TS error */}
                     <Button variant="ghost" className="mt-2" onClick={() => setActiveTab(ViewType.SERVICES)}>Ir para Catálogo</Button>
                   </div>
                 ) : (
@@ -181,24 +218,32 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
             
             <div className="space-y-5 mb-8 relative z-10">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Subtotal</span>
+                <span className="text-slate-400">Faturamento Bruto</span>
                 <span className="font-bold text-slate-200">R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Impostos incidentes</span>
-                <span className="font-bold text-slate-200">R$ 0,00</span>
+              
+              <div className="p-4 bg-slate-800/50 rounded-2xl border border-white/5 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Imposto ({taxPercent}%)</span>
+                  <span className="font-black text-rose-400">- R$ {taxValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-start gap-2 text-[9px] text-slate-500 leading-tight italic">
+                  <AlertCircle size={10} className="mt-0.5" />
+                  <span>Este valor será lançado automaticamente como uma despesa na finalização.</span>
+                </div>
               </div>
+
               <div className="pt-5 border-t border-slate-800 flex flex-col gap-1">
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Valor de Investimento</span>
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Margem Líquida Estimada</span>
                 <div className="flex justify-between items-end">
-                  <span className="text-4xl font-black">R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-4xl font-black">R$ {(subtotal - taxValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4 relative z-10">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 block">Forma de Pagamento</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 block">Forma de Recebimento</label>
                 <div className="grid grid-cols-2 gap-2">
                   {['PIX', 'Boleto', 'Cartão', 'Transferência'].map(method => (
                     <button 
@@ -217,12 +262,8 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                 onClick={handleFinalize}
                 disabled={cart.length === 0}
               >
-                Registrar e Finalizar
+                Registrar e Lançar Taxa
               </Button>
-              
-              <p className="text-[9px] text-center text-slate-500 leading-relaxed px-4">
-                Ao finalizar, o value será lançado automaticamente no seu fluxo de caixa como entrada pendente ou concluída.
-              </p>
             </div>
           </Card>
         </div>
