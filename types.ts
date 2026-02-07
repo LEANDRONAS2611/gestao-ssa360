@@ -10,6 +10,8 @@ export enum ViewType {
   SETTINGS = 'settings'
 }
 
+export type PeriodType = 'month' | 'quarter' | 'semester' | 'year' | 'all';
+
 export interface CloudConfig {
   supabaseUrl: string;
   supabaseKey: string;
@@ -41,6 +43,15 @@ export interface Expense {
   value: number;
   date: string;
   status: 'Pago' | 'Pendente';
+}
+
+export interface FinancialDocument {
+  id: string;
+  name: string;
+  uploadDate: string;
+  fileSize: string;
+  fileType: string;
+  content: string; // Base64 content
 }
 
 export interface SaleItem {

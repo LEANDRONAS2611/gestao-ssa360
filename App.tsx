@@ -9,13 +9,14 @@ import { ContractView } from './views/ContractView';
 import { ExpensesView } from './views/ExpensesView';
 import { FinancialView } from './views/FinancialView';
 import { SettingsView } from './views/SettingsView';
-import { ViewType, Service, Expense, Sale, CompanyProfile } from './types';
+import { ViewType, Service, Expense, Sale, CompanyProfile, FinancialDocument, PeriodType } from './types';
 import { ChevronRight, Home, Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewType>(ViewType.DASHBOARD);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [periodType, setPeriodType] = useState<PeriodType>('month');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const isInitialMount = useRef(true);
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [services, setServices] = useState<Service[]>(() => JSON.parse(localStorage.getItem('ga_services') || '[]'));
   const [expenses, setExpenses] = useState<Expense[]>(() => JSON.parse(localStorage.getItem('ga_expenses') || '[]'));
   const [sales, setSales] = useState<Sale[]>(() => JSON.parse(localStorage.getItem('ga_sales') || '[]'));
+  const [documents, setDocuments] = useState<FinancialDocument[]>(() => JSON.parse(localStorage.getItem('ga_docs') || '[]'));
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => {
     const saved = localStorage.getItem('ga_company_profile');
     return saved ? JSON.parse(saved) : {
@@ -58,7 +60,7 @@ const App: React.FC = () => {
     if (!supabase || !companyProfile.cloudConfig?.projectId) return;
 
     setSyncStatus('syncing');
-    const fullData = { services, expenses, sales, companyProfile };
+    const fullData = { services, expenses, sales, documents, companyProfile };
     
     try {
       const { error } = await supabase
@@ -76,7 +78,7 @@ const App: React.FC = () => {
       console.error("Erro na sincronização Cloud:", err);
       setSyncStatus('error');
     }
-  }, [supabase, services, expenses, sales, companyProfile]);
+  }, [supabase, services, expenses, sales, documents, companyProfile]);
 
   // --- Carregamento Inicial da Nuvem ---
   useEffect(() => {
@@ -96,6 +98,7 @@ const App: React.FC = () => {
           if (cloud.services) setServices(cloud.services);
           if (cloud.expenses) setExpenses(cloud.expenses);
           if (cloud.sales) setSales(cloud.sales);
+          if (cloud.documents) setDocuments(cloud.documents);
           if (cloud.companyProfile) setCompanyProfile(cloud.companyProfile);
           setSyncStatus('success');
         } else {
@@ -114,13 +117,12 @@ const App: React.FC = () => {
 
   // --- Auto-Save Local e Cloud Sync (com Debounce) ---
   useEffect(() => {
-    // Salva localmente sempre
     localStorage.setItem('ga_services', JSON.stringify(services));
     localStorage.setItem('ga_expenses', JSON.stringify(expenses));
     localStorage.setItem('ga_sales', JSON.stringify(sales));
+    localStorage.setItem('ga_docs', JSON.stringify(documents));
     localStorage.setItem('ga_company_profile', JSON.stringify(companyProfile));
 
-    // Evita sincronizar no primeiro mount (para não sobrescrever a nuvem com dados locais vazios)
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
@@ -131,12 +133,12 @@ const App: React.FC = () => {
     }, 3000); 
 
     return () => clearTimeout(timeout);
-  }, [services, expenses, sales, companyProfile, syncToCloud]);
+  }, [services, expenses, sales, documents, companyProfile, syncToCloud]);
 
   const renderContent = () => {
     switch (activeTab) {
       case ViewType.DASHBOARD:
-        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} sales={sales} expenses={expenses} setActiveTab={setActiveTab} />;
+        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} setPeriodType={setPeriodType} sales={sales} expenses={expenses} setActiveTab={setActiveTab} />;
       case ViewType.SERVICES:
         return <ServicesView services={services} setServices={setServices} />;
       case ViewType.SALES:
@@ -161,16 +163,20 @@ const App: React.FC = () => {
           <FinancialView 
             currentDate={currentDate} 
             setCurrentDate={setCurrentDate} 
+            periodType={periodType}
+            setPeriodType={setPeriodType}
             sales={sales} 
             expenses={expenses} 
+            documents={documents}
             setSales={setSales}
             setExpenses={setExpenses}
+            setDocuments={setDocuments}
           />
         );
       case ViewType.SETTINGS:
         return <SettingsView profile={companyProfile} setProfile={setCompanyProfile} />;
       default:
-        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} sales={sales} expenses={expenses} setActiveTab={setActiveTab} />;
+        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} setPeriodType={setPeriodType} sales={sales} expenses={expenses} setActiveTab={setActiveTab} />;
     }
   };
 
