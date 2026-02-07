@@ -1,10 +1,10 @@
 
-import React from 'react';
-import { 
-  Package, ShoppingCart, DollarSign, 
+import React, { useState } from 'react';
+import {
+  Package, ShoppingCart, DollarSign,
   FileText, CreditCard, LayoutDashboard,
   Menu, X, ChevronRight, LogOut, Settings,
-  PenTool, Cloud, CloudOff, RefreshCw
+  PenTool, Cloud, CloudOff, RefreshCw, ChevronLeft
 } from 'lucide-react';
 import { ViewType } from '../types';
 
@@ -16,10 +16,11 @@ interface SidebarProps {
   syncStatus?: 'idle' | 'syncing' | 'error' | 'success';
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ 
-  activeTab, setActiveTab, ownerName, isCloudActive, syncStatus 
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab, setActiveTab, ownerName, isCloudActive, syncStatus
 }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
     { id: ViewType.DASHBOARD, label: 'Resumo', icon: LayoutDashboard },
@@ -34,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleNav = (id: ViewType) => {
     setActiveTab(id);
-    setIsOpen(false);
+    setIsMobileOpen(false);
   };
 
   const getInitials = (name: string) => {
@@ -43,45 +44,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 right-4 z-50 p-3 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-500/30 no-print"
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        className="lg:hidden fixed top-4 right-4 z-50 p-3 bg-brand-600 text-white rounded-2xl shadow-xl shadow-brand-500/30 no-print"
       >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
+        {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {isOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md z-40"
-          onClick={() => setIsOpen(false)}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-opacity"
+          onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-72 bg-slate-900 text-white flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16, 1, 0.3, 1)] no-print
-        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        fixed inset-y-0 left-0 z-40 bg-slate-900 text-white flex flex-col transition-all duration-300 ease-in-out no-print shadow-2xl
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${isCollapsed ? 'w-20' : 'w-72'}
       `}>
-        <div className="p-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-              <span className="font-black text-2xl tracking-tighter">G</span>
-            </div>
-            <div>
-              <h2 className="font-black text-lg tracking-tight leading-none">Gestão Azul</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-blue-400 font-black">Pro Enterprise</span>
-                {isCloudActive ? (
-                  <Cloud size={10} className="text-emerald-500" />
-                ) : (
-                  <CloudOff size={10} className="text-slate-600" />
-                )}
+        <div className="p-6 flex items-center justify-between">
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
+            {!isCollapsed && (
+              <div className="w-10 h-10 bg-gradient-to-br from-brand-400 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                <span className="font-black text-xl tracking-tighter">G</span>
               </div>
-            </div>
+            )}
+            {isCollapsed && (
+              <div className="w-8 h-8 bg-gradient-to-br from-brand-400 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                <span className="font-black text-sm">G</span>
+              </div>
+            )}
+
+            {!isCollapsed && (
+              <div className="overflow-hidden">
+                <h2 className="font-black text-base tracking-tight leading-none whitespace-nowrap">Gestão Azul</h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-brand-400 font-bold whitespace-nowrap">Pro Enterprise</span>
+                </div>
+              </div>
+            )}
           </div>
+
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:flex p-1.5 text-slate-400 hover:text-white bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
         </div>
 
-        <nav className="flex-1 px-4 mt-4 space-y-2 overflow-y-auto custom-scrollbar">
-          <p className="px-4 mb-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Menu Corporativo</p>
+        <nav className="flex-1 px-3 mt-4 space-y-2 overflow-y-auto custom-scrollbar">
+          {!isCollapsed && <p className="px-4 mb-3 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Menu Principal</p>}
           <ul className="space-y-1">
             {menuItems.map((item) => {
               const isActive = activeTab === item.id;
@@ -89,19 +103,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <li key={item.id}>
                   <button
                     onClick={() => handleNav(item.id)}
+                    title={isCollapsed ? item.label : undefined}
                     className={`
-                      w-full flex items-center justify-between px-5 py-4 rounded-2xl text-sm font-bold transition-all relative group
+                      w-full flex items-center ${isCollapsed ? 'justify-center px-0 py-3' : 'justify-between px-4 py-3'} 
+                      rounded-xl text-sm font-bold transition-all relative group
                       ${isActive
-                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20 translate-x-1'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                        ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/20'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                       }
                     `}
                   >
-                    <div className="flex items-center gap-4">
-                      <item.icon size={20} className={isActive ? 'text-white' : 'text-slate-500 group-hover:text-blue-400 transition-colors'} />
-                      <span>{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <item.icon size={20} className={`${isActive ? 'text-white' : 'text-slate-500 group-hover:text-brand-400 transition-colors'}`} />
+                      {!isCollapsed && <span>{item.label}</span>}
                     </div>
-                    {isActive && <ChevronRight size={16} className="text-white/50" />}
+                    {isActive && !isCollapsed && <ChevronRight size={14} className="text-white/40" />}
+
+                    {/* Tooltip for collapsed mode */}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                        {item.label}
+                      </div>
+                    )}
                   </button>
                 </li>
               );
@@ -109,25 +132,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </ul>
         </nav>
 
-        <div className="p-6">
-          {syncStatus === 'syncing' && (
-            <div className="px-4 py-2 mb-4 bg-blue-500/10 rounded-xl border border-blue-500/20 flex items-center gap-2">
-              <RefreshCw size={12} className="text-blue-400 animate-spin" />
-              <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Sincronizando...</span>
+        <div className="p-4 border-t border-slate-800/50">
+          {isCloudActive !== undefined && (
+            <div className={`mb-4 flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-2'}`}>
+              {isCloudActive ? (
+                <Cloud size={16} className="text-emerald-500" />
+              ) : (
+                <CloudOff size={16} className="text-slate-500" />
+              )}
+              {!isCollapsed && (
+                <div className="flex flex-col">
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${isCloudActive ? 'text-emerald-500' : 'text-slate-500'}`}>
+                    {isCloudActive ? 'Nuvem Ativa' : 'Offline'}
+                  </span>
+                  {syncStatus === 'syncing' && <span className="text-[9px] text-brand-400 animate-pulse">Sincronizando...</span>}
+                </div>
+              )}
             </div>
           )}
-          
-          <div className="p-4 rounded-3xl bg-slate-800/40 border border-white/5 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-xs font-black text-blue-400">
+
+          <div className={`p-3 rounded-2xl bg-slate-800/40 border border-white/5 flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-xs font-black text-brand-400 shrink-0">
               {getInitials(ownerName)}
             </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-black truncate">{ownerName}</p>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Diretoria</p>
-            </div>
-            <button className="text-slate-500 hover:text-rose-400 transition-colors">
-              <LogOut size={16} />
-            </button>
+            {!isCollapsed && (
+              <div className="flex-1 overflow-hidden min-w-0">
+                <p className="text-xs font-bold truncate text-slate-200">{ownerName}</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider truncate">Diretoria</p>
+              </div>
+            )}
+            {!isCollapsed && (
+              <button className="text-slate-500 hover:text-rose-400 transition-colors">
+                <LogOut size={16} />
+              </button>
+            )}
           </div>
         </div>
       </aside>
