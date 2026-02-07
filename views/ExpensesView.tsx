@@ -1,8 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, Button, Input, Badge, MonthSelector } from '../components/UI';
 import { Plus, Trash2, ArrowDownCircle } from 'lucide-react';
 import { Expense } from '../types';
+import { isDateInPeriod } from './DashboardView';
 
 interface ExpensesViewProps {
   currentDate: Date;
@@ -14,6 +14,11 @@ interface ExpensesViewProps {
 export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentDate, setCurrentDate, expenses, setExpenses }) => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Partial<Expense>>({ description: '', category: 'Outros', value: 0, status: 'Pendente', date: new Date().toISOString().split('T')[0] });
+
+  // Filter expenses by selected month
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(e => isDateInPeriod(new Date(e.date), currentDate, 'month'));
+  }, [expenses, currentDate]);
 
   const handleSave = () => {
     if (!formData.description) return;
@@ -27,7 +32,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentDate, setCurr
     };
     setExpenses([newExpense, ...expenses]);
     setShowForm(false);
-    setFormData({ description: '', value: 0, category: 'Outros', status: 'Pendente' });
+    setFormData({ description: '', value: 0, category: 'Outros', status: 'Pendente', date: new Date().toISOString().split('T')[0] });
   };
 
   return (
@@ -71,17 +76,23 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentDate, setCurr
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {expenses.map((expense) => (
-                <tr key={expense.id} className="hover:bg-rose-50/20 transition-colors">
-                  <td className="p-4 text-slate-500">{new Date(expense.date).toLocaleDateString('pt-BR')}</td>
-                  <td className="p-4 font-bold text-slate-800">{expense.description}</td>
-                  <td className="p-4 text-right font-black text-rose-600">R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td className="p-4 text-center"><Badge status={expense.status} /></td>
-                  <td className="p-4 text-center">
-                    <button onClick={() => setExpenses(expenses.filter(e => e.id !== expense.id))} className="p-2 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
-                  </td>
+              {filteredExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-12 text-center text-slate-400 italic font-medium">Nenhuma despesa registrada para este mês.</td>
                 </tr>
-              ))}
+              ) : (
+                filteredExpenses.map((expense) => (
+                  <tr key={expense.id} className="hover:bg-rose-50/20 transition-colors">
+                    <td className="p-4 text-slate-500">{new Date(expense.date).toLocaleDateString('pt-BR')}</td>
+                    <td className="p-4 font-bold text-slate-800">{expense.description}</td>
+                    <td className="p-4 text-right font-black text-rose-600">R$ {expense.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td className="p-4 text-center"><Badge status={expense.status} /></td>
+                    <td className="p-4 text-center">
+                      <button onClick={() => setExpenses(expenses.filter(e => e.id !== expense.id))} className="p-2 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
