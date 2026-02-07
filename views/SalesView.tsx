@@ -1,26 +1,25 @@
 
 import React, { useState } from 'react';
+import { useApp } from '../contexts/AppDataContext';
 import { Card, Button, Input } from '../components/UI';
-import { 
-  Plus, UserPlus, FileCheck, Trash2, 
+import {
+  Plus, UserPlus, FileCheck, Trash2,
   Briefcase, Calendar, Clock, ClipboardList, Percent, AlertCircle
 } from 'lucide-react';
 import { Service, Sale, Expense, ViewType } from '../types';
+import { useToast } from '../contexts/ToastContext';
 
 interface SalesViewProps {
-  services: Service[];
-  sales: Sale[];
-  setSales: (sales: Sale[]) => void;
-  expenses: Expense[];
-  setExpenses: (expenses: Expense[]) => void;
   setActiveTab: (tab: ViewType) => void;
 }
 
-export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales, expenses, setExpenses, setActiveTab }) => {
+export const SalesView: React.FC<SalesViewProps> = ({ setActiveTab }) => {
+  const { services, sales, setSales, expenses, setExpenses } = useApp();
+  const { addToast } = useToast();
   const [clientName, setClientName] = useState('');
   const [deadline, setDeadline] = useState('');
   const [taxPercent, setTaxPercent] = useState<number>(0);
-  const [cart, setCart] = useState<{serviceId: string, name: string, price: number, quantity: number}[]>([]);
+  const [cart, setCart] = useState<{ serviceId: string, name: string, price: number, quantity: number }[]>([]);
   const [paymentMethod, setPaymentMethod] = useState('PIX');
 
   // Filter only services from the global catalog
@@ -29,7 +28,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
   const addToCart = (service: Service) => {
     const existing = cart.find(c => c.serviceId === service.id);
     if (existing) {
-      setCart(cart.map(c => c.serviceId === service.id ? {...c, quantity: c.quantity + 1} : c));
+      setCart(cart.map(c => c.serviceId === service.id ? { ...c, quantity: c.quantity + 1 } : c));
     } else {
       setCart([...cart, { serviceId: service.id, name: service.name, price: service.price, quantity: 1 }]);
     }
@@ -47,7 +46,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
 
   const handleFinalize = () => {
     if (!clientName || cart.length === 0) {
-      alert("Por favor, identifique o cliente e selecione ao menos um serviço.");
+      addToast("Por favor, identifique o cliente e selecione ao menos um serviço.", "warning");
       return;
     }
 
@@ -83,13 +82,13 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
     setSales([...sales, newSale]);
     setExpenses(updatedExpenses);
 
-    alert(`Contrato registrado! ${taxPercent > 0 ? `Um lançamento de despesa de R$ ${taxValue.toFixed(2)} foi gerado automaticamente.` : ''}`);
-    
+    addToast(`Contrato registrado! ${taxPercent > 0 ? `Um lançamento de despesa de R$ ${taxValue.toFixed(2)} foi gerado automaticamente.` : ''}`, "success");
+
     setCart([]);
     setClientName('');
     setDeadline('');
     setTaxPercent(0);
-    setActiveTab(ViewType.FINANCIAL); 
+    setActiveTab(ViewType.FINANCIAL);
   };
 
   return (
@@ -114,21 +113,21 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
               <h3 className="text-xl font-black text-slate-900">Identificação do Projeto</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Input 
-                label="Cliente / Contratante" 
-                placeholder="Nome completo ou Razão Social" 
+              <Input
+                label="Cliente / Contratante"
+                placeholder="Nome completo ou Razão Social"
                 value={clientName}
                 onChange={e => setClientName(e.target.value)}
               />
-              <Input 
-                label="Prazo de Entrega Estimado" 
+              <Input
+                label="Prazo de Entrega Estimado"
                 type="date"
                 value={deadline}
                 onChange={e => setDeadline(e.target.value)}
                 icon={Calendar}
               />
-              <Input 
-                label="Alíquota de Imposto (%)" 
+              <Input
+                label="Alíquota de Imposto (%)"
                 type="number"
                 placeholder="0"
                 value={taxPercent}
@@ -151,7 +150,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                   </div>
                 ) : (
                   availableServices.map(service => (
-                    <button 
+                    <button
                       key={service.id}
                       onClick={() => addToCart(service)}
                       className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-left group"
@@ -193,8 +192,8 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className="text-xs font-black text-slate-900">R$ {(item.price * item.quantity).toFixed(2)}</span>
-                        <button 
-                          onClick={() => removeFromCart(item.serviceId)} 
+                        <button
+                          onClick={() => removeFromCart(item.serviceId)}
                           className="p-1 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
                         >
                           <Trash2 size={12} />
@@ -211,17 +210,17 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
         <div className="space-y-6">
           <Card className="p-8 sticky top-8 bg-slate-900 text-white shadow-2xl overflow-hidden relative">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-            
+
             <h3 className="text-xl font-black mb-8 flex items-center gap-3 relative z-10">
               <FileCheck size={24} className="text-blue-400" /> Resumo do Contrato
             </h3>
-            
+
             <div className="space-y-5 mb-8 relative z-10">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">Faturamento Bruto</span>
                 <span className="font-bold text-slate-200">R$ {subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
-              
+
               <div className="p-4 bg-slate-800/50 rounded-2xl border border-white/5 space-y-3">
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-400 font-bold uppercase tracking-wider">Imposto ({taxPercent}%)</span>
@@ -246,7 +245,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3 block">Forma de Recebimento</label>
                 <div className="grid grid-cols-2 gap-2">
                   {['PIX', 'Boleto', 'Cartão', 'Transferência'].map(method => (
-                    <button 
+                    <button
                       key={method}
                       onClick={() => setPaymentMethod(method)}
                       className={`py-2.5 text-[10px] font-bold rounded-lg border transition-all ${paymentMethod === method ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20' : 'border-slate-800 text-slate-500 hover:border-slate-700'}`}
@@ -257,7 +256,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ services, sales, setSales,
                 </div>
               </div>
 
-              <Button 
+              <Button
                 className="w-full mt-4 py-4 bg-blue-600 hover:bg-blue-500 text-base font-black uppercase tracking-wider rounded-xl shadow-xl shadow-blue-600/20"
                 onClick={handleFinalize}
                 disabled={cart.length === 0}

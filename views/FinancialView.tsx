@@ -1,29 +1,27 @@
 
 import React, { useState, useMemo, useRef } from 'react';
+import { useApp } from '../contexts/AppDataContext';
 import { Card, TimeRangeSelector, Button } from '../components/UI';
-import { 
+import {
   X, Check, FileUp, Sparkles, MessageSquareQuote, Loader2, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, Download
 } from 'lucide-react';
 import { Sale, Expense, FinancialDocument, PeriodType } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
 import { isDateInPeriod } from './DashboardView';
+import { useToast } from '../contexts/ToastContext';
 
 interface FinancialViewProps {
   currentDate: Date;
   setCurrentDate: (d: Date) => void;
   periodType: PeriodType;
   setPeriodType: (p: PeriodType) => void;
-  sales: Sale[];
-  expenses: Expense[];
-  documents: FinancialDocument[];
-  setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
-  setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
-  setDocuments: React.Dispatch<React.SetStateAction<FinancialDocument[]>>;
 }
 
-export const FinancialView: React.FC<FinancialViewProps> = ({ 
-  currentDate, setCurrentDate, periodType, setPeriodType, sales, expenses, documents, setSales, setExpenses, setDocuments 
+export const FinancialView: React.FC<FinancialViewProps> = ({
+  currentDate, setCurrentDate, periodType, setPeriodType
 }) => {
+  const { sales, expenses, documents, setSales, setExpenses, setDocuments } = useApp();
+  const { addToast } = useToast();
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isCfoConsulting, setIsCfoConsulting] = useState(false);
   const [cfoInsight, setCfoInsight] = useState<string | null>(null);
@@ -35,7 +33,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
       ...expenses.map(e => ({ type: 'saida' as const, label: e.description, value: e.value, date: e.date, id: e.id, category: e.category }))
     ];
     return all.filter(item => isDateInPeriod(new Date(item.date), currentDate, periodType))
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, expenses, currentDate, periodType]);
 
   const totals = useMemo(() => ledger.reduce((acc, curr) => {
@@ -82,7 +80,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
     try {
       const base64Data = await fileToBase64(file);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
+
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [
@@ -154,14 +152,14 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
 
         setSales(prev => [...newSales, ...prev]);
         setExpenses(prev => [...newExpenses, ...prev]);
-        alert(`${result.transactions.length} transações importadas e salvas com sucesso!`);
+        addToast(`${result.transactions.length} transações importadas e salvas com sucesso!`, "success");
       }
     } catch (err: any) {
       console.error("Erro no processamento Gemini:", err);
       if (err.message?.includes("API_KEY")) {
-        alert("Erro de autenticação: Verifique se a API_KEY do Gemini está configurada no seu ambiente de hospedagem.");
+        addToast("Erro de autenticação: Verifique se a API_KEY do Gemini está configurada no seu ambiente de hospedagem.", "error");
       } else {
-        alert("A IA não conseguiu processar este arquivo. Certifique-se de que é um PDF válido e que contém transações legíveis.");
+        addToast("A IA não conseguiu processar este arquivo. Certifique-se de que é um PDF válido e que contém transações legíveis.", "error");
       }
     } finally {
       setIsAiProcessing(false);
@@ -189,7 +187,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-3">
             Fluxo Financeiro
-            <button 
+            <button
               onClick={exportToCSV}
               className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all no-print"
               title="Baixar Backup CSV"
@@ -200,20 +198,20 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
           <p className="text-slate-500 font-medium italic">Gestão e auditoria assistida por IA.</p>
         </div>
         <div className="flex flex-wrap gap-3 items-center justify-center">
-          <Button 
-            variant="dark" 
-            icon={isCfoConsulting ? Loader2 : Sparkles} 
+          <Button
+            variant="dark"
+            icon={isCfoConsulting ? Loader2 : Sparkles}
             loading={isCfoConsulting}
             onClick={consultCfoAi}
             className="shadow-lg shadow-slate-900/10"
           >
             Auditoria IA
           </Button>
-          <TimeRangeSelector 
-            currentDate={currentDate} 
-            period={periodType} 
-            onDateChange={setCurrentDate} 
-            onPeriodChange={setPeriodType} 
+          <TimeRangeSelector
+            currentDate={currentDate}
+            period={periodType}
+            onDateChange={setCurrentDate}
+            onPeriodChange={setPeriodType}
           />
         </div>
       </div>
@@ -247,15 +245,15 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
             <p className="text-slate-400 text-sm font-medium leading-relaxed">Faça o upload do seu extrato bancário em PDF. A IA identificará entradas e saídas e as lançará instantaneamente, salvando os dados no navegador e na nuvem.</p>
           </div>
           <div className="w-full lg:w-auto">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={(e) => e.target.files?.[0] && extractDataWithAI(e.target.files[0])} 
-              className="hidden" 
-              accept="application/pdf" 
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => e.target.files?.[0] && extractDataWithAI(e.target.files[0])}
+              className="hidden"
+              accept="application/pdf"
             />
-            <Button 
-              className="w-full lg:w-48 shadow-lg shadow-blue-600/20" 
+            <Button
+              className="w-full lg:w-48 shadow-lg shadow-blue-600/20"
               onClick={() => fileInputRef.current?.click()}
               loading={isAiProcessing}
               icon={isAiProcessing ? undefined : Sparkles}

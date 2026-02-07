@@ -3,15 +3,15 @@ import { Card, Button, Input, Badge, MonthSelector } from '../components/UI';
 import { Plus, Trash2, ArrowDownCircle } from 'lucide-react';
 import { Expense } from '../types';
 import { isDateInPeriod } from './DashboardView';
+import { useApp } from '../contexts/AppDataContext';
 
 interface ExpensesViewProps {
   currentDate: Date;
   setCurrentDate: (d: Date) => void;
-  expenses: Expense[];
-  setExpenses: (expenses: Expense[]) => void;
 }
 
-export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentDate, setCurrentDate, expenses, setExpenses }) => {
+export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentDate, setCurrentDate }) => {
+  const { expenses, setExpenses } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Partial<Expense>>({ description: '', category: 'Outros', value: 0, status: 'Pendente', date: new Date().toISOString().split('T')[0] });
 
@@ -52,9 +52,9 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({ currentDate, setCurr
         <Card className="p-8 border-rose-100 border">
           <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-tight">Lançar Despesa</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Input label="Descrição" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-            <Input label="Valor (R$)" type="number" value={formData.value} onChange={e => setFormData({...formData, value: Number(e.target.value)})} />
-            <Input label="Vencimento" type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+            <Input label="Descrição" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+            <Input label="Valor (R$)" type="number" value={formData.value} onChange={e => setFormData({ ...formData, value: Number(e.target.value) })} />
+            <Input label="Vencimento" type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
           </div>
           <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
             <Button variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>

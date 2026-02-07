@@ -3,13 +3,10 @@ import React, { useState } from 'react';
 import { Card, Button, Input, Badge } from '../components/UI';
 import { Plus, Search, Trash2, Edit2, Filter, Package } from 'lucide-react';
 import { Service } from '../types';
+import { useApp } from '../contexts/AppDataContext';
 
-interface ServicesViewProps {
-  services: Service[];
-  setServices: (services: Service[]) => void;
-}
-
-export const ServicesView: React.FC<ServicesViewProps> = ({ services, setServices }) => {
+export const ServicesView: React.FC = () => {
+  const { services, setServices } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<Partial<Service>>({ name: '', price: 0, cost: 0, type: 'Serviço' });
 
@@ -41,19 +38,19 @@ export const ServicesView: React.FC<ServicesViewProps> = ({ services, setService
         <Card className="p-8 shadow-xl border-blue-100 border">
           <h3 className="text-xl font-black text-slate-900 mb-6 uppercase tracking-tight">Cadastrar Item</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Input label="Nome" className="lg:col-span-2" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            <Input label="Nome" className="lg:col-span-2" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Tipo</label>
-              <select 
-                className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm h-[42px] text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none" 
-                value={formData.type} 
-                onChange={e => setFormData({...formData, type: e.target.value as any})}
+              <select
+                className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm h-[42px] text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                value={formData.type}
+                onChange={e => setFormData({ ...formData, type: e.target.value as any })}
               >
                 <option value="Serviço">Serviço</option>
                 <option value="Produto">Produto</option>
               </select>
             </div>
-            <Input label="Preço de Venda (R$)" type="number" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+            <Input label="Preço de Venda (R$)" type="number" value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} />
           </div>
           <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
             <Button variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>

@@ -1,17 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input } from '../components/UI';
-import { 
-  FileText, Plus, Trash2, ChevronLeft, 
-  Printer, Camera, CheckCircle, Share2, Download 
+import {
+  FileText, Plus, Trash2, ChevronLeft,
+  Printer, Camera, CheckCircle, Share2, Download
 } from 'lucide-react';
 import { Proposal, ProposalItem, CompanyProfile } from '../types';
 
-interface ProposalViewProps {
-  companyProfile: CompanyProfile;
-}
+import { useApp } from '../contexts/AppDataContext';
+import { useToast } from '../contexts/ToastContext';
 
-export const ProposalView: React.FC<ProposalViewProps> = ({ companyProfile }) => {
+export const ProposalView: React.FC = () => {
+  const { companyProfile } = useApp();
+  const { addToast } = useToast();
   const [isEditing, setIsEditing] = useState(true);
   const [data, setData] = useState<Proposal>({
     id: '1',
@@ -75,12 +76,12 @@ export const ProposalView: React.FC<ProposalViewProps> = ({ companyProfile }) =>
 
   const handleShare = () => {
     if (!data.clientName) {
-      alert("Defina o nome do cliente antes de compartilhar.");
+      addToast("Defina o nome do cliente antes de compartilhar.", "warning");
       return;
     }
     const mockLink = `https://gestaoazulpro.com/proposta/${data.id}_${Date.now()}`;
     navigator.clipboard.writeText(mockLink).then(() => {
-      alert("Link da proposta copiado para a área de transferência!");
+      addToast("Link da proposta copiado para a área de transferência!", "success");
     });
   };
 
@@ -129,7 +130,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({ companyProfile }) =>
                     </span>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight">{item.title || 'Serviço sem título'}</h3>
                   </div>
-                  
+
                   <p className="text-slate-600 text-sm leading-relaxed mb-6 ml-12">
                     {item.description || 'Nenhuma descrição detalhada fornecida.'}
                   </p>
@@ -208,11 +209,11 @@ export const ProposalView: React.FC<ProposalViewProps> = ({ companyProfile }) =>
               <LayoutIcon size={18} className="text-blue-500" /> Cabeçalho do Documento
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Número Orçamento" value={data.budgetNumber} onChange={e => setData({...data, budgetNumber: e.target.value})} />
-              <Input label="Data (DD/MM/AAAA)" value={data.date} onChange={e => setData({...data, date: e.target.value})} />
-              <Input label="Cliente / Empresa" value={data.clientName} onChange={e => setData({...data, clientName: e.target.value})} />
-              <Input label="Telefone Contato" value={data.clientPhone} onChange={e => setData({...data, clientPhone: e.target.value})} />
-              <Input label="Local do Job" className="md:col-span-2" value={data.location} onChange={e => setData({...data, location: e.target.value})} />
+              <Input label="Número Orçamento" value={data.budgetNumber} onChange={e => setData({ ...data, budgetNumber: e.target.value })} />
+              <Input label="Data (DD/MM/AAAA)" value={data.date} onChange={e => setData({ ...data, date: e.target.value })} />
+              <Input label="Cliente / Empresa" value={data.clientName} onChange={e => setData({ ...data, clientName: e.target.value })} />
+              <Input label="Telefone Contato" value={data.clientPhone} onChange={e => setData({ ...data, clientPhone: e.target.value })} />
+              <Input label="Local do Job" className="md:col-span-2" value={data.location} onChange={e => setData({ ...data, location: e.target.value })} />
             </div>
           </Card>
 
@@ -221,7 +222,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({ companyProfile }) =>
               <h3 className="font-bold text-slate-800">Serviços Solicitados</h3>
               <Button variant="ghost" icon={Plus} onClick={addService}>Add Serviço</Button>
             </div>
-            
+
             {data.services.map((item, idx) => (
               <Card key={item.id} className="p-6 border-l-4 border-l-blue-500">
                 <div className="flex justify-between items-center mb-6">
@@ -231,30 +232,30 @@ export const ProposalView: React.FC<ProposalViewProps> = ({ companyProfile }) =>
                   </button>
                 </div>
                 <div className="space-y-4">
-                  <Input 
-                    label="Título do Serviço" 
-                    value={item.title} 
+                  <Input
+                    label="Título do Serviço"
+                    value={item.title}
                     onChange={e => updateService(item.id, 'title', e.target.value)}
                     placeholder="Ex: Consultoria Técnica"
                   />
-                  <Input 
-                    label="Descrição Longa" 
-                    value={item.description} 
+                  <Input
+                    label="Descrição Longa"
+                    value={item.description}
                     onChange={e => updateService(item.id, 'description', e.target.value)}
                     placeholder="Explique o que será feito..."
                     multiline
                   />
-                  <Input 
-                    label="Itens Inclusos (Um por linha)" 
-                    value={item.includedItems} 
+                  <Input
+                    label="Itens Inclusos (Um por linha)"
+                    value={item.includedItems}
                     onChange={e => updateService(item.id, 'includedItems', e.target.value)}
                     placeholder="- Item 1&#10;- Item 2"
                     multiline
                   />
-                  <Input 
-                    label="Valor Unitário (R$)" 
-                    type="number" 
-                    value={item.value} 
+                  <Input
+                    label="Valor Unitário (R$)"
+                    type="number"
+                    value={item.value}
                     onChange={e => updateService(item.id, 'value', e.target.value)}
                   />
                 </div>
@@ -299,15 +300,15 @@ const InfoBlock: React.FC<{ label: string; value: string; sub?: string }> = ({ l
 );
 
 const LayoutIcon = ({ size, className }: { size: number; className?: string }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
   >
     <rect width="18" height="18" x="3" y="3" rx="2" />

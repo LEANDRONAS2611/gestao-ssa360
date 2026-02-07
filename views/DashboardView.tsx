@@ -1,14 +1,15 @@
 
 import React, { useMemo, useState } from 'react';
+import { useApp } from '../contexts/AppDataContext';
 import { Card, TimeRangeSelector, Button } from '../components/UI';
-import { 
-  TrendingUp, TrendingDown, Wallet, ShoppingCart, 
-  ArrowUpRight, ArrowDownRight, Activity, Sparkles, Target, Lightbulb, 
+import {
+  TrendingUp, TrendingDown, Wallet, ShoppingCart,
+  ArrowUpRight, ArrowDownRight, Activity, Sparkles, Target, Lightbulb,
   BarChart3, Zap, ShieldCheck, AlertTriangle, Loader2, X, MessageSquareQuote
 } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer 
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer
 } from 'recharts';
 import { Sale, Expense, ViewType, PeriodType } from '../types';
 import { GoogleGenAI } from "@google/genai";
@@ -18,14 +19,13 @@ interface DashboardViewProps {
   setCurrentDate: (d: Date) => void;
   periodType: PeriodType;
   setPeriodType: (p: PeriodType) => void;
-  sales: Sale[];
-  expenses: Expense[];
   setActiveTab: (tab: ViewType) => void;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ 
-  currentDate, setCurrentDate, periodType, setPeriodType, sales, expenses, setActiveTab 
+export const DashboardView: React.FC<DashboardViewProps> = ({
+  currentDate, setCurrentDate, periodType, setPeriodType, setActiveTab
 }) => {
+  const { sales, expenses } = useApp();
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
 
@@ -39,7 +39,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalSales = filteredData.sales.reduce((acc, s) => acc + s.total, 0);
   const totalExpenses = filteredData.expenses.reduce((acc, e) => acc + e.value, 0);
   const netProfit = totalSales - totalExpenses;
-  
+
   const diagnostics = useMemo(() => {
     const margin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
     const efficiency = totalSales > 0 ? (totalExpenses / totalSales) * 100 : 0;
@@ -84,15 +84,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         data[week].d += e.value;
       });
       return data;
-    } 
-    
+    }
+
     // Para períodos maiores, agrupar por mês
-    const months: Record<string, {name: string, r: number, d: number}> = {};
-    const sortedData = [...filteredData.sales, ...filteredData.expenses].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
+    const months: Record<string, { name: string, r: number, d: number }> = {};
+    const sortedData = [...filteredData.sales, ...filteredData.expenses].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
     // Inicializar labels vazios se anual
     if (periodType === 'year') {
-      for(let i=0; i<12; i++) {
+      for (let i = 0; i < 12; i++) {
         const name = new Date(0, i).toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase();
         months[i] = { name, r: 0, d: 0 };
       }
@@ -120,19 +120,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <p className="text-slate-500 mt-1 font-medium italic">Análise de Performance Empresarial.</p>
         </div>
         <div className="flex flex-wrap gap-3 items-center">
-          <Button 
-            onClick={askAiAssistant} 
+          <Button
+            onClick={askAiAssistant}
             className="bg-slate-900 hover:bg-black text-white shadow-xl shadow-slate-200"
             icon={isAiLoading ? Loader2 : Sparkles}
             disabled={isAiLoading}
           >
             {isAiLoading ? 'Consultando...' : 'Análise IA'}
           </Button>
-          <TimeRangeSelector 
-            currentDate={currentDate} 
-            period={periodType} 
-            onDateChange={setCurrentDate} 
-            onPeriodChange={setPeriodType} 
+          <TimeRangeSelector
+            currentDate={currentDate}
+            period={periodType}
+            onDateChange={setCurrentDate}
+            onPeriodChange={setPeriodType}
           />
         </div>
       </div>
@@ -154,7 +154,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <MetricCard title="Faturamento" value={`R$ ${totalSales.toLocaleString('pt-BR')}`} change="Receita Bruta" trend="up" icon={TrendingUp} color="blue" />
         <MetricCard title="Despesas" value={`R$ ${totalExpenses.toLocaleString('pt-BR')}`} change="Gastos" trend="down" icon={TrendingDown} color="rose" />
         <MetricCard title="Lucro Líquido" value={`R$ ${netProfit.toLocaleString('pt-BR')}`} change="Resultado" trend={netProfit >= 0 ? 'up' : 'down'} icon={Wallet} color="emerald" />
-        <MetricCard title="Margem" value={`${diagnostics.margin.toFixed(1)}%` } change="Rentabilidade" trend="up" icon={Activity} color="indigo" />
+        <MetricCard title="Margem" value={`${diagnostics.margin.toFixed(1)}%`} change="Rentabilidade" trend="up" icon={Activity} color="indigo" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -168,8 +168,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
-                <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 800}} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} />
+                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 800 }} />
                 <Area type="monotone" dataKey="r" name="Receita" stroke="#2563eb" fillOpacity={0.1} fill="#2563eb" strokeWidth={4} />
                 <Area type="monotone" dataKey="d" name="Despesa" stroke="#f43f5e" fill="transparent" strokeWidth={2} strokeDasharray="5 5" />
               </AreaChart>
@@ -205,7 +205,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 // Funções Auxiliares de Data
 export function isDateInPeriod(date: Date, anchorDate: Date, period: PeriodType): boolean {
   if (period === 'all') return true;
-  
+
   const year = anchorDate.getFullYear();
   const month = anchorDate.getMonth();
   const dYear = date.getFullYear();
@@ -223,7 +223,7 @@ export function isDateInPeriod(date: Date, anchorDate: Date, period: PeriodType)
     return dYear === year && ds === s;
   }
   if (period === 'year') return dYear === year;
-  
+
   return false;
 }
 
