@@ -44,6 +44,18 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
     return acc;
   }, { entradas: 0, saidas: 0 }), [ledger]);
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const exportToCSV = () => {
     const headers = ["Data", "Descricao", "Categoria", "Tipo", "Valor"];
     const rows = ledger.map(item => [
@@ -68,28 +80,26 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
   const extractDataWithAI = async (file: File) => {
     setIsAiProcessing(true);
     try {
-      // @ts-ignore
-      const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
-      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
-
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      
-      let fullText = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str || "").join(" ");
-        fullText += pageText + "\n";
-      }
-
-      if (!fullText.trim()) throw new Error("Texto não extraído.");
-
+      const base64Data = await fileToBase64(file);
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Extraia transações deste extrato bancário. Ignore ruídos. Retorne JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "nome", "value": 0.0, "type": "entrada/saida", "category": "categoria" }] }. Texto: ${fullText.substring(0, 15000)}`,
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: "application/pdf"
+                }
+              },
+              {
+                text: "Analise este extrato bancário e extraia todas as transações financeiras. Ignore taxas bancárias irrelevantes ou saldos. Retorne um JSON estrito no formato: { \"transactions\": [{ \"date\": \"YYYY-MM-DD\", \"description\": \"NOME DA TRANSACAO\", \"value\": 0.0, \"type\": \"entrada/saida\", \"category\": \"CATEGORIA\" }] }."
+              }
+            ]
+          }
+        ],
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -114,7 +124,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
         }
       });
 
-      const result = JSON.parse(response.text);
+      const result = JSON.parse(response.text || "{}");
       if (result.transactions && Array.isArray(result.transactions)) {
         const newSales: Sale[] = [];
         const newExpenses: Expense[] = [];
@@ -147,10 +157,15 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
         alert(`${result.transactions.length} transações importadas e salvas com sucesso!`);
       }
     } catch (err: any) {
-      console.error(err);
-      alert("Erro ao processar arquivo. Verifique se o formato é válido.");
+      console.error("Erro no processamento Gemini:", err);
+      if (err.message?.includes("API_KEY")) {
+        alert("Erro de autenticação: Verifique se a API_KEY do Gemini está configurada no seu ambiente de hospedagem.");
+      } else {
+        alert("A IA não conseguiu processar este arquivo. Certifique-se de que é um PDF válido e que contém transações legíveis.");
+      }
     } finally {
       setIsAiProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -158,7 +173,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
     setIsCfoConsulting(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Atue como CFO. Analise: Receita R$ ${totals.entradas}, Gastos R$ ${totals.saidas}. Dê um conselho curto.`;
+      const prompt = `Atue como CFO. Analise o fluxo de caixa atual: Receita Total R$ ${totals.entradas.toFixed(2)}, Saídas R$ ${totals.saidas.toFixed(2)}. Dê um conselho curto, direto e estratégico para este negócio.`;
       const result = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
       setCfoInsight(result.text || "");
     } catch (err) {
@@ -226,10 +241,10 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
               </div>
               <div>
                 <h3 className="text-xl font-black italic tracking-tight uppercase">Sincronização Direta</h3>
-                <p className="text-xs text-blue-400 font-black tracking-widest uppercase">Importação Automática Gemini 3</p>
+                <p className="text-xs text-blue-400 font-black tracking-widest uppercase">Processamento Nativo Gemini 3</p>
               </div>
             </div>
-            <p className="text-slate-400 text-sm font-medium leading-relaxed">Faça o upload do seu extrato bancário. A IA identificará entradas e saídas e as lançará instantaneamente no seu fluxo de caixa, salvando os dados no navegador e na nuvem.</p>
+            <p className="text-slate-400 text-sm font-medium leading-relaxed">Faça o upload do seu extrato bancário em PDF. A IA identificará entradas e saídas e as lançará instantaneamente, salvando os dados no navegador e na nuvem.</p>
           </div>
           <div className="w-full lg:w-auto">
             <input 
@@ -245,7 +260,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
               loading={isAiProcessing}
               icon={isAiProcessing ? undefined : Sparkles}
             >
-              {isAiProcessing ? "Processando..." : "Lançar Extrato"}
+              {isAiProcessing ? "Analisando PDF..." : "Lançar Extrato"}
             </Button>
           </div>
         </div>
