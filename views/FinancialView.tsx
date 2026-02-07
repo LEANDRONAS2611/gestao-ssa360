@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Card, TimeRangeSelector, Button } from '../components/UI';
 import { 
-  X, Check, FileUp, Sparkles, MessageSquareQuote, Loader2, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft
+  X, Check, FileUp, Sparkles, MessageSquareQuote, Loader2, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, Download
 } from 'lucide-react';
 import { Sale, Expense, FinancialDocument, PeriodType } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -43,6 +43,27 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
     else acc.saidas += curr.value;
     return acc;
   }, { entradas: 0, saidas: 0 }), [ledger]);
+
+  const exportToCSV = () => {
+    const headers = ["Data", "Descricao", "Categoria", "Tipo", "Valor"];
+    const rows = ledger.map(item => [
+      new Date(item.date).toLocaleDateString('pt-BR'),
+      `"${item.label.replace(/"/g, '""')}"`,
+      item.category,
+      item.type,
+      item.value.toFixed(2).replace('.', ',')
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `backup_financeiro_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const extractDataWithAI = async (file: File) => {
     setIsAiProcessing(true);
@@ -123,7 +144,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
 
         setSales(prev => [...newSales, ...prev]);
         setExpenses(prev => [...newExpenses, ...prev]);
-        alert(`${result.transactions.length} transações importadas com sucesso!`);
+        alert(`${result.transactions.length} transações importadas e salvas com sucesso!`);
       }
     } catch (err: any) {
       console.error(err);
@@ -151,7 +172,16 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
     <div className="space-y-8 animate-fade-in relative">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Fluxo Financeiro</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-3">
+            Fluxo Financeiro
+            <button 
+              onClick={exportToCSV}
+              className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all no-print"
+              title="Baixar Backup CSV"
+            >
+              <Download size={18} />
+            </button>
+          </h1>
           <p className="text-slate-500 font-medium italic">Gestão e auditoria assistida por IA.</p>
         </div>
         <div className="flex flex-wrap gap-3 items-center justify-center">
@@ -199,7 +229,7 @@ export const FinancialView: React.FC<FinancialViewProps> = ({
                 <p className="text-xs text-blue-400 font-black tracking-widest uppercase">Importação Automática Gemini 3</p>
               </div>
             </div>
-            <p className="text-slate-400 text-sm font-medium leading-relaxed">Faça o upload do seu extrato bancário. A IA identificará entradas e saídas e as lançará instantaneamente no seu fluxo de caixa.</p>
+            <p className="text-slate-400 text-sm font-medium leading-relaxed">Faça o upload do seu extrato bancário. A IA identificará entradas e saídas e as lançará instantaneamente no seu fluxo de caixa, salvando os dados no navegador e na nuvem.</p>
           </div>
           <div className="w-full lg:w-auto">
             <input 

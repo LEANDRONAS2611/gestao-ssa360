@@ -4,7 +4,7 @@ import { Card, Button, Input } from '../components/UI';
 import { 
   Save, Building2, User, Phone, Mail, 
   MapPin, ShieldCheck, Sparkles, Globe, 
-  Server, Database, ExternalLink, Copy, CheckCircle, AlertCircle
+  Server, Database, ExternalLink, Copy, CheckCircle, AlertCircle, FileSpreadsheet, Download
 } from 'lucide-react';
 import { CompanyProfile } from '../types';
 import { createClient } from '@supabase/supabase-js';
@@ -23,6 +23,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ profile, setProfile 
   const handleSave = () => {
     setProfile(tempProfile);
     alert("Configurações aplicadas! O sistema irá sincronizar em alguns segundos.");
+  };
+
+  const exportFullBackup = () => {
+    const services = JSON.parse(localStorage.getItem('ga_services') || '[]');
+    const expenses = JSON.parse(localStorage.getItem('ga_expenses') || '[]');
+    const sales = JSON.parse(localStorage.getItem('ga_sales') || '[]');
+
+    const allTransactions = [
+      ...sales.map((s: any) => ({ data: s.date, desc: s.clientName, cat: 'Receita', tipo: 'entrada', valor: s.total })),
+      ...expenses.map((e: any) => ({ data: e.date, desc: e.description, cat: e.category, tipo: 'saida', valor: e.value }))
+    ].sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+    const headers = ["Data", "Descricao", "Categoria", "Tipo", "Valor"];
+    const rows = allTransactions.map(item => [
+      new Date(item.data).toLocaleDateString('pt-BR'),
+      `"${item.desc.replace(/"/g, '""')}"`,
+      item.cat,
+      item.tipo,
+      item.valor.toFixed(2).replace('.', ',')
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `BACKUP_TOTAL_GESTAOAZUL_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const testConnection = async () => {
@@ -97,16 +127,24 @@ CREATE POLICY "Permitir tudo" ON app_data FOR ALL USING (true) WITH CHECK (true)
               </div>
             </Card>
 
-            <Card className="p-8 border-l-4 border-l-blue-500">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center">
-                  <User size={20} />
+            <Card className="p-8 border-l-4 border-l-emerald-500">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <FileSpreadsheet size={20} />
                 </div>
-                <h3 className="text-xl font-black text-slate-800">Dados do Responsável</h3>
+                <h3 className="text-xl font-black text-slate-800">Cópia de Segurança Local</h3>
               </div>
-              <div className="max-w-md">
-                <Input label="Nome do Responsável" value={tempProfile.ownerName} onChange={e => setTempProfile({...tempProfile, ownerName: e.target.value})} icon={User} />
-              </div>
+              <p className="text-slate-500 text-sm mb-6 font-medium leading-relaxed">
+                Independentemente da nuvem, você pode baixar uma base de dados completa em formato CSV a qualquer momento. Isso garante que você nunca perca seus dados financeiros, mesmo se o navegador for limpo.
+              </p>
+              <Button 
+                variant="secondary" 
+                className="w-full md:w-auto px-8" 
+                icon={Download}
+                onClick={exportFullBackup}
+              >
+                Baixar Banco de Dados (CSV)
+              </Button>
             </Card>
           </div>
 
