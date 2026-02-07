@@ -26,6 +26,11 @@ export interface CompanyProfile {
   address: string;
   ownerName: string;
   cloudConfig?: CloudConfig;
+  pixKey?: string;
+  pixTitular?: string;
+  bankName?: string;
+  bankAgency?: string;
+  bankAccount?: string;
 }
 
 export interface Service {
@@ -114,3 +119,37 @@ export interface Proposal {
   companyAddress: string;
   companyEmail: string;
 }
+
+
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: {
+    dateTime: string;
+  };
+  htmlLink: string;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  company: string;
+  value: number;
+  status: 'Prospecção' | 'Qualificação' | 'Proposta' | 'Negociação' | 'Fechado';
+  temperature: 'Frio' | 'Morno' | 'Quente';
+  lastContact: string;
+}
+
+export interface Transaction {
+  id: string;
+  description: string;
+  value: number;
+  type: 'Entrada' | 'Saída';
+  category: string;
+  date: string;
+  status: 'Pago' | 'Pendente';
+  source?: 'Vendas' | 'Despesas' | 'Manual' | 'Importado';
+}
+
+

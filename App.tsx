@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './views/DashboardView';
 import { ServicesView } from './views/ServicesView';
@@ -9,187 +9,69 @@ import { ContractView } from './views/ContractView';
 import { ExpensesView } from './views/ExpensesView';
 import { FinancialView } from './views/FinancialView';
 import { SettingsView } from './views/SettingsView';
-import { ViewType, Service, Expense, Sale, CompanyProfile, FinancialDocument, PeriodType } from './types';
+import { ViewType, PeriodType } from './types';
 import { ChevronRight, Home, Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { useApp } from './contexts/AppDataContext';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ViewType>(ViewType.DASHBOARD);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [periodType, setPeriodType] = useState<PeriodType>('month');
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
-  const isInitialMount = useRef(true);
 
-  // --- Estados Principais ---
-  const [services, setServices] = useState<Service[]>(() => JSON.parse(localStorage.getItem('ga_services') || '[]'));
-  const [expenses, setExpenses] = useState<Expense[]>(() => JSON.parse(localStorage.getItem('ga_expenses') || '[]'));
-  const [sales, setSales] = useState<Sale[]>(() => JSON.parse(localStorage.getItem('ga_sales') || '[]'));
-  const [documents, setDocuments] = useState<FinancialDocument[]>(() => JSON.parse(localStorage.getItem('ga_docs') || '[]'));
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => {
-    const saved = localStorage.getItem('ga_company_profile');
-    return saved ? JSON.parse(saved) : {
-      name: 'SSA360 SOLUÇÕES CAPTAÇÃO DE IMAGEM',
-      cnpj: '57.502.430/0001-29',
-      phone: '(71) 98765-4321',
-      email: 'contato@ssa360.com.br',
-      address: 'Conjunto São Judas Tadeu, nº 114, Bl41, Pernambués - Salvador/BA',
-      ownerName: 'Leandro Nascimento'
-    };
-  });
-
-  // --- Inicialização do Cliente Cloud ---
-  useEffect(() => {
-    if (companyProfile.cloudConfig?.supabaseUrl && companyProfile.cloudConfig?.supabaseKey) {
-      try {
-        const client = createClient(
-          companyProfile.cloudConfig.supabaseUrl,
-          companyProfile.cloudConfig.supabaseKey
-        );
-        setSupabase(client);
-      } catch (err) {
-        console.error("Erro ao inicializar Supabase:", err);
-      }
-    } else {
-      setSupabase(null);
-    }
-  }, [companyProfile.cloudConfig?.supabaseUrl, companyProfile.cloudConfig?.supabaseKey]);
-
-  // --- Função de Sincronização (Upsert) ---
-  const syncToCloud = useCallback(async () => {
-    if (!supabase || !companyProfile.cloudConfig?.projectId) return;
-
-    setSyncStatus('syncing');
-    const fullData = { services, expenses, sales, documents, companyProfile };
-    
-    try {
-      const { error } = await supabase
-        .from('app_data')
-        .upsert({ 
-          id: companyProfile.cloudConfig.projectId, 
-          data: fullData,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
-
-      if (error) throw error;
-      setSyncStatus('success');
-      setTimeout(() => setSyncStatus('idle'), 3000);
-    } catch (err) {
-      console.error("Erro na sincronização Cloud:", err);
-      setSyncStatus('error');
-    }
-  }, [supabase, services, expenses, sales, documents, companyProfile]);
-
-  // --- Carregamento Inicial da Nuvem ---
-  useEffect(() => {
-    const fetchCloudData = async () => {
-      if (!supabase || !companyProfile.cloudConfig?.projectId) return;
-      
-      setSyncStatus('syncing');
-      try {
-        const { data, error } = await supabase
-          .from('app_data')
-          .select('data')
-          .eq('id', companyProfile.cloudConfig.projectId)
-          .maybeSingle();
-
-        if (data?.data && !error) {
-          const cloud = data.data;
-          if (cloud.services) setServices(cloud.services);
-          if (cloud.expenses) setExpenses(cloud.expenses);
-          if (cloud.sales) setSales(cloud.sales);
-          if (cloud.documents) setDocuments(cloud.documents);
-          if (cloud.companyProfile) setCompanyProfile(cloud.companyProfile);
-          setSyncStatus('success');
-        } else {
-          setSyncStatus('idle');
-        }
-      } catch (err) {
-        console.error("Erro ao buscar dados na nuvem:", err);
-        setSyncStatus('error');
-      }
-    };
-    
-    if (supabase) {
-      fetchCloudData();
-    }
-  }, [supabase, companyProfile.cloudConfig?.projectId]);
-
-  // --- Auto-Save Local e Cloud Sync (com Debounce) ---
-  useEffect(() => {
-    localStorage.setItem('ga_services', JSON.stringify(services));
-    localStorage.setItem('ga_expenses', JSON.stringify(expenses));
-    localStorage.setItem('ga_sales', JSON.stringify(sales));
-    localStorage.setItem('ga_docs', JSON.stringify(documents));
-    localStorage.setItem('ga_company_profile', JSON.stringify(companyProfile));
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      syncToCloud();
-    }, 3000); 
-
-    return () => clearTimeout(timeout);
-  }, [services, expenses, sales, documents, companyProfile, syncToCloud]);
+  const {
+    services, setServices,
+    expenses, setExpenses,
+    sales, setSales,
+    documents, setDocuments,
+    companyProfile, setCompanyProfile,
+    syncStatus,
+    supabase
+  } = useApp();
 
   const renderContent = () => {
     switch (activeTab) {
       case ViewType.DASHBOARD:
-        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} setPeriodType={setPeriodType} sales={sales} expenses={expenses} setActiveTab={setActiveTab} />;
+        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} setPeriodType={setPeriodType} setActiveTab={setActiveTab} />;
       case ViewType.SERVICES:
-        return <ServicesView services={services} setServices={setServices} />;
+        return <ServicesView />;
       case ViewType.SALES:
         return (
-          <SalesView 
-            services={services} 
-            sales={sales} 
-            setSales={setSales} 
-            expenses={expenses}
-            setExpenses={setExpenses}
-            setActiveTab={setActiveTab} 
+          <SalesView
+            setActiveTab={setActiveTab}
           />
         );
       case ViewType.PROPOSALS:
-        return <ProposalView companyProfile={companyProfile} />;
+        return <ProposalView />;
       case ViewType.CONTRACTS:
-        return <ContractView companyProfile={companyProfile} />;
+        return <ContractView />;
       case ViewType.EXPENSES:
-        return <ExpensesView currentDate={currentDate} setCurrentDate={setCurrentDate} expenses={expenses} setExpenses={setExpenses} />;
+        return <ExpensesView currentDate={currentDate} setCurrentDate={setCurrentDate} />;
       case ViewType.FINANCIAL:
         return (
-          <FinancialView 
-            currentDate={currentDate} 
-            setCurrentDate={setCurrentDate} 
+          <FinancialView
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
             periodType={periodType}
             setPeriodType={setPeriodType}
-            sales={sales} 
-            expenses={expenses} 
-            documents={documents}
-            setSales={setSales}
-            setExpenses={setExpenses}
-            setDocuments={setDocuments}
           />
         );
       case ViewType.SETTINGS:
-        return <SettingsView profile={companyProfile} setProfile={setCompanyProfile} />;
+        return <SettingsView />;
       default:
-        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} setPeriodType={setPeriodType} sales={sales} expenses={expenses} setActiveTab={setActiveTab} />;
+        return <DashboardView currentDate={currentDate} setCurrentDate={setCurrentDate} periodType={periodType} setPeriodType={setPeriodType} setActiveTab={setActiveTab} />;
     }
   };
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-inter">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        ownerName={companyProfile.ownerName} 
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        ownerName={companyProfile.ownerName}
         isCloudActive={!!supabase}
         syncStatus={syncStatus}
       />
-      
+
       <main className="flex-1 lg:ml-72 p-6 md:p-12 transition-all duration-500 min-h-screen">
         <div className="max-w-7xl mx-auto pb-24">
           <div className="mb-10 flex items-center justify-between no-print">
@@ -203,7 +85,7 @@ const App: React.FC = () => {
                 <span className="text-blue-600 font-black">{activeTab.replace('-', ' ')}</span>
               </div>
             </div>
-            
+
             <div className="hidden sm:flex items-center gap-6">
               <div className="flex items-center gap-2">
                 {syncStatus === 'syncing' ? (
@@ -217,9 +99,9 @@ const App: React.FC = () => {
                 )}
                 <span className={`text-[10px] font-black uppercase tracking-widest 
                   ${syncStatus === 'error' ? 'text-rose-600' : supabase ? 'text-emerald-600' : 'text-slate-400'}`}>
-                  {syncStatus === 'syncing' ? 'Sincronizando...' : 
-                   syncStatus === 'error' ? 'Erro de Sincronia' :
-                   supabase ? 'Conectado à Nuvem' : 'Modo Local'}
+                  {syncStatus === 'syncing' ? 'Sincronizando...' :
+                    syncStatus === 'error' ? 'Erro de Sincronia' :
+                      supabase ? 'Conectado à Nuvem' : 'Modo Local'}
                 </span>
               </div>
               <div className="h-4 w-[1px] bg-slate-200"></div>
